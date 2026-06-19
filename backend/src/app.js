@@ -7,7 +7,6 @@ import combinationRoutes from "./routes/combinationRoutes.js";
 
 const app = express();
 
-
 app.use(
   cors({
     origin: config.clientUrl
@@ -24,7 +23,6 @@ app.get("/api/health", (_request, response) => {
 app.use("/api/medicines", medicineRoutes);
 app.use("/api/validate", validationRoutes);
 app.use("/api/combination", combinationRoutes);
-
 
 app.use((error, _request, response, _next) => {
   console.error(error);
