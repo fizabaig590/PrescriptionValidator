@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.env.local
+.DS_Store
+frontend/dist/
+backend/node_modules/
+backend/prisma/dev.db
+backend/uploads/

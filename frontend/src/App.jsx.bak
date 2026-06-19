@@ -1,0 +1,730 @@
+ import { useEffect, useState } from "react";
+
+const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+
+const initialForm = {
+  prescriptionText: "Paracetamol 500mg twice daily\nIbuprofen 400mg after meals",
+  allergies: "NSAID"
+};
+
+function scoreTone(score) {
+  if (score >= 85) {
+    return "strong";
+  }
+
+  if (score >= 60) {
+    return "watch";
+  }
+
+  return "risk";
+}
+
+function formatIntake(medicine) {
+  if (!medicine) return "Not available";
+
+  const { minDosageValue, maxDosageValue, dosageUnit } = medicine;
+
+  if (minDosageValue && maxDosageValue && dosageUnit) {
+    return `Take ${minDosageValue}-${maxDosageValue}${dosageUnit} per dose as directed`;
+  }
+
+  if (maxDosageValue && dosageUnit) {
+    return `Typical dose ${maxDosageValue}${dosageUnit}`;
+  }
+
+  if (minDosageValue && dosageUnit) {
+    return `Typical dose ${minDosageValue}${dosageUnit}`;
+  }
+
+  return "Refer to prescriber or product label";
+}
+
+function App() {
+  const interactionWarnings = [
+    {
+      id: 1,
+      medicine1: "Paracetamol",
+      medicine2: "Warfarin",
+      severity: "moderate",
+      warning: "Long-term use may increase bleeding risk."
+    },
+    {
+      id: 2,
+      medicine1: "Ibuprofen",
+      medicine2: "Warfarin",
+      severity: "high",
+      warning: "Increased risk of bleeding and gastric ulcers."
+    },
+    {
+      id: 3,
+      medicine1: "Amoxicillin",
+      medicine2: "Warfarin",
+      severity: "moderate",
+      warning: "May increase anticoagulant effects and bleeding risk."
+    },
+    {
+      id: 4,
+      medicine1: "Explendid",
+      medicine2: "Cardnit",
+      severity: "moderate",
+      warning: "Combined nitrates may cause severe hypotension and dizziness."
+    },
+    {
+      id: 5,
+      medicine1: "Panadol",
+      medicine2: "Warfarin",
+      severity: "moderate",
+      warning: "Frequent use can increase bleeding tendency."
+    },
+    {
+      id: 6,
+      medicine1: "Brufen",
+      medicine2: "Disprin",
+      severity: "high",
+      warning: "Higher risk of stomach bleeding and ulcers."
+    },
+    {
+      id: 7,
+      medicine1: "Augmentin",
+      medicine2: "Warfarin",
+      severity: "moderate",
+      warning: "May enhance anticoagulant effect."
+    },
+    {
+      id: 8,
+      medicine1: "Flagyl",
+      medicine2: "Warfarin",
+      severity: "high",
+      warning: "Can significantly increase bleeding risk."
+    },
+    {
+      id: 9,
+      medicine1: "Ponstan",
+      medicine2: "Disprin",
+      severity: "high",
+      warning: "Increased gastrointestinal bleeding risk."
+    },
+    {
+      id: 10,
+      medicine1: "Rigix",
+      medicine2: "Benadryl Syrup",
+      severity: "moderate",
+      warning: "May cause excessive drowsiness and sedation."
+    },
+    {
+      id: 11,
+      medicine1: "Glucophage",
+      medicine2: "Daonil",
+      severity: "moderate",
+      warning: "Combination may increase risk of hypoglycemia."
+    },
+    {
+      id: 12,
+      medicine1: "Losec",
+      medicine2: "Warfarin",
+      severity: "moderate",
+      warning: "May alter anticoagulant response."
+    },
+    {
+      id: 13,
+      medicine1: "Nexum",
+      medicine2: "Warfarin",
+      severity: "moderate",
+      warning: "May increase warfarin blood levels."
+    },
+    {
+      id: 14,
+      medicine1: "Ventolin Syrup",
+      medicine2: "Concor",
+      severity: "moderate",
+      warning: "Beta blockers may reduce salbutamol effectiveness."
+    },
+    {
+      id: 15,
+      medicine1: "Benadryl Syrup",
+      medicine2: "Corex Syrup",
+      severity: "moderate",
+      warning: "May cause excessive drowsiness and CNS depression."
+    },
+    {
+      id: 16,
+      medicine1: "Actifed Syrup",
+      medicine2: "Concor",
+      severity: "moderate",
+      warning: "Pseudoephedrine may increase blood pressure and reduce beta blocker effect."
+    },
+    {
+      id: 17,
+      medicine1: "Disprin",
+      medicine2: "Warfarin",
+      severity: "high",
+      warning: "Very high risk of bleeding complications."
+    },
+    {
+      id: 18,
+      medicine1: "Concor",
+      medicine2: "Norvasc",
+      severity: "moderate",
+      warning: "May lower blood pressure and heart rate excessively."
+    },
+    {
+      id: 19,
+      medicine1: "Lasix",
+      medicine2: "Norvasc",
+      severity: "moderate",
+      warning: "May cause dizziness and low blood pressure."
+    },
+    {
+      id: 20,
+      medicine1: "Lasix",
+      medicine2: "Glucophage",
+      severity: "low",
+      warning: "Monitor kidney function and blood sugar levels."
+    },
+    {
+      id: 21,
+      medicine1: "Brufen",
+      medicine2: "Ponstan",
+      severity: "high",
+      warning: "Concurrent NSAID use increases ulcer and bleeding risk."
+    },
+    {
+      id: 22,
+      medicine1: "Corex Syrup",
+      medicine2: "Benadryl Syrup",
+      severity: "moderate",
+      warning: "Combined sedative effect may impair alertness."
+    },
+    {
+      id: 23,
+      medicine1: "Actifed Syrup",
+      medicine2: "Ventolin Syrup",
+      severity: "moderate",
+      warning: "May increase heart rate and nervousness."
+    },
+    {
+      id: 24,
+      medicine1: "Disprin",
+      medicine2: "Brufen",
+      severity: "high",
+      warning: "Increased risk of gastric irritation and bleeding."
+    }
+  ];
+
+  const [comboResult, setComboResult] = useState(null);
+
+  const [form, setForm] = useState(initialForm);
+  const [image, setImage] = useState(null);
+  const [result, setResult] = useState(null);
+  const [history, setHistory] = useState([]);
+
+  const [catalog, setCatalog] = useState([]);
+  const [catalogQuery, setCatalogQuery] = useState("");
+  const [medicineQuery, setMedicineQuery] = useState("");
+  const [medicineResult, setMedicineResult] = useState(null);
+  const [medicineSearching, setMedicineSearching] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadHistory = async () => {
+    setHistoryLoading(true);
+
+    try {
+      const response = await fetch(`${apiUrl}/api/validate/history`);
+
+      if (!response.ok) {
+        throw new Error("History request failed.");
+      }
+
+      const data = await response.json();
+      setHistory(data);
+    } catch (_historyError) {
+      setHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const loadCatalog = async () => {
+    setCatalogLoading(true);
+
+    try {
+      const response = await fetch(`${apiUrl}/api/medicines`);
+
+      if (!response.ok) {
+        throw new Error("Medicine catalog request failed.");
+      }
+
+      const data = await response.json();
+      setCatalog(data);
+    } catch (_catalogError) {
+      setCatalog([]);
+    } finally {
+      setCatalogLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadHistory();
+    loadCatalog();
+  }, []);
+
+  const submitTextValidation = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+    setResult(null);
+
+    try {
+      const response = await fetch(`${apiUrl}/api/validate/text`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          prescriptionText: form.prescriptionText,
+          allergies: form.allergies
+            .split(",")
+            .map((entry) => entry.trim())
+            .filter(Boolean)
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Validation request failed.");
+      }
+
+      setResult(data);
+      loadHistory();
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitImage = async (event) => {
+    event.preventDefault();
+    setUploading(true);
+    setError("");
+    setResult(null);
+
+    try {
+      if (!image) {
+        throw new Error("Select an image before uploading.");
+      }
+
+      const payload = new FormData();
+      payload.append("prescriptionImage", image);
+      payload.append("allergies", form.allergies);
+
+      const response = await fetch(`${apiUrl}/api/validate/image`, {
+        method: "POST",
+        body: payload
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Image upload failed.");
+      }
+
+      setResult(data);
+      loadHistory();
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const appendMedicineToForm = (medicine) => {
+    setForm((current) => {
+      const nextLine = `${medicine.name}${medicine.maxDosageValue ? ` ${medicine.maxDosageValue}${medicine.dosageUnit}` : ""}`;
+      const prefix = current.prescriptionText.trim() ? `${current.prescriptionText.trim()}\n` : "";
+
+      return {
+        ...current,
+        prescriptionText: `${prefix}${nextLine}`
+      };
+    });
+  };
+
+  const searchSingleMedicine = async (event) => {
+    event?.preventDefault();
+
+    const query = medicineQuery.trim();
+    setMedicineResult(null);
+
+    if (!query) {
+      return;
+    }
+
+    setMedicineSearching(true);
+
+    try {
+      const response = await fetch(
+        `${apiUrl}/api/medicines/search?name=${encodeURIComponent(query)}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Medicine lookup failed.");
+      }
+
+      const data = await response.json();
+
+      if (!data || !data.length) {
+        setMedicineResult({ notFound: true });
+        return;
+      }
+
+      setMedicineResult(data[0]);
+    } catch (err) {
+      setMedicineResult({ error: err.message });
+    } finally {
+      setMedicineSearching(false);
+    }
+  };
+
+  const filteredCatalog = catalog.filter((medicine) => {
+    const query = catalogQuery.trim().toLowerCase();
+
+    if (!query) {
+      return true;
+    }
+
+    return (
+      medicine.name.toLowerCase().includes(query) ||
+      (medicine.genericName ?? "").toLowerCase().includes(query) ||
+      (medicine.notes ?? "").toLowerCase().includes(query)
+    );
+  });
+
+  return (
+    <div className="app-shell">
+      <div className="dashboard">
+        <aside className="sidebar">
+          <div className="sidebar-card brand-card">
+            <p className="eyebrow">Medical Prescription Validator</p>
+            <h2>Smart Prescription Analysis</h2>
+            <p>
+              Detect dosage errors and allergy risks with a clear, review-ready output.
+            </p>
+          </div>
+
+          <nav className="sidebar-card">
+            <h3>Navigate</h3>
+            <a href="#search">Medicine Search</a>
+            <a href="#image">Scan Through Image</a>
+          </nav>
+
+          <section className="sidebar-card">
+            <h3>Search Tips</h3>
+            <ul className="plain-list">
+              <li>Use bright, straight prescription images.</li>
+              <li>Printed text performs better than handwriting.</li>
+              <li>Search the catalog to confirm the medicine exists in your DB.</li>
+            </ul>
+          </section>
+        </aside>
+
+        <div className="content">
+          <section className="hero" id="workspace">
+            <p className="eyebrow">Validation Workspace</p>
+            <h1>Smart prescription analysis with dosage and allergy risk checks.</h1>
+            <p className="hero-copy">
+              Search medicines or scan an image to detect dosage errors and allergy risks.
+            </p>
+            <div style={{ marginTop: "0.75rem" }}>
+              <span className="pill" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
+                <strong>Total medicines:</strong> {catalogLoading ? "Loading..." : catalog.length}
+              </span>
+            </div>
+          </section>
+
+          <main className="grid">
+            <section className="panel" id="combo">
+              <div className="panel-heading">
+                <h2>Check Medicine Combination</h2>
+                <p>Type two medicine names and get compatibility warnings.</p>
+              </div>
+
+              <div className="form-stack">
+                <label>
+                  Medicine 1
+                  <input
+                    type="text"
+                    value={form.comboMed1}
+                    onChange={(e) =>
+                      setForm((current) => ({ ...current, comboMed1: e.target.value }))
+                    }
+                    placeholder="e.g. Ibuprofen"
+                  />
+                </label>
+
+                <label>
+                  Medicine 2
+                  <input
+                    type="text"
+                    value={form.comboMed2}
+                    onChange={(e) =>
+                      setForm((current) => ({ ...current, comboMed2: e.target.value }))
+                    }
+                    placeholder="e.g. Warfarin"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={loading}
+                  onClick={async () => {
+                    const m1 = String(form.comboMed1 ?? "").trim();
+                    const m2 = String(form.comboMed2 ?? "").trim();
+
+                    if (!m1 || !m2) {
+                      setError("Please enter both medicine names.");
+                      setComboResult(null);
+                      return;
+                    }
+
+                    setLoading(true);
+                    setError("");
+                    setResult(null);
+                    setComboResult(null);
+
+                    try {
+                      // Reuse the text validation endpoint; just synthesize the two names.
+                      const syntheticText = `${m1}\n${m2}`;
+                      const allergies = String(form.allergies ?? "")
+                        .split(",")
+                        .map((entry) => entry.trim())
+                        .filter(Boolean);
+
+                      const response = await fetch(`${apiUrl}/api/validate/text`, {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                          prescriptionText: syntheticText,
+                          allergies
+                        })
+                      });
+
+                      const data = await response.json();
+
+                      if (!response.ok) {
+                        throw new Error(data.message || "Validation request failed.");
+                      }
+
+                      setResult(data);
+                      setComboResult(data);
+                      loadHistory();
+                    } catch (requestError) {
+                      setError(requestError.message);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                >
+                  {loading ? "Checking..." : "Check Combination"}
+                </button>
+
+                {comboResult ? (
+                  <div className="combo-warnings" style={{ marginTop: "1rem" }}>
+                    <h3 style={{ margin: 0, marginBottom: "0.5rem" }}>Combination Warnings</h3>
+                    {comboResult?.matchedInteractionWarnings?.length ? (
+                      <ul>
+                        {comboResult.matchedInteractionWarnings.map((w) => (
+                          <li key={w.id}>
+                            <strong>{w.severity}:</strong> {w.warning}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="notice">No known interaction warnings for this pair.</p>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            </section>
+
+
+            <section className="panel"> 
+
+              <div className="panel-heading">
+                <h2>Scan Prescription Image</h2>
+                <p>Upload a prescription photo to extract text and compare it against the DB.</p>
+              </div>
+
+              <form onSubmit={submitImage} className="form-stack">
+                <label className="upload-box">
+                  <span>Prescription Image</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => setImage(event.target.files?.[0] ?? null)}
+                  />
+                </label>
+
+                <button type="submit" disabled={uploading}>
+                  {uploading ? "Scanning..." : "Upload Image"}
+                </button>
+              </form>
+            </section>
+
+            <section className="panel result-panel" id="results">
+              <div className="panel-heading">
+                <h2>Validation Result</h2>
+                <p>Review extracted text, matched medicines, warnings, and previous validation runs.</p>
+              </div>
+
+
+              <div className="form-stack">
+                <label>
+                  Search Catalog
+                  <input
+                    type="text"
+                    value={catalogQuery}
+                    onChange={(event) => setCatalogQuery(event.target.value)}
+                    placeholder="Search medicine name or generic name"
+                  />
+                </label>
+              </div>
+
+              {catalogLoading ? (
+                <p className="notice">Loading medicine catalog...</p>
+              ) : filteredCatalog.length ? (
+                <div className="catalog-list">
+                  {filteredCatalog.map((medicine) => (
+                    <article className="catalog-card" key={medicine.id}>
+                      <div className="catalog-header">
+                        <div>
+                          <h3>{medicine.name}</h3>
+                          <p>{medicine.genericName ?? "Generic name not available"}</p>
+                        </div>
+
+                      </div>
+                      <p>{medicine.notes ?? "No medicine description available."}</p>
+                      <div className="catalog-meta">
+                        <span>
+                          Dosage:{" "}
+                          {medicine.minDosageValue !== null &&
+                          medicine.maxDosageValue !== null &&
+                          medicine.dosageUnit
+                            ? `${medicine.minDosageValue}-${medicine.maxDosageValue}${medicine.dosageUnit}`
+                            : "Not configured"}
+                        </span>
+                        <span>
+                          Allergy tags:{" "}
+                          {medicine.allergyTags?.length ? medicine.allergyTags.join(", ") : "None"}
+                        </span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="notice">No medicine matched the current search.</p>
+              )}
+            </section>
+
+            <section className="panel result-panel" id="results">
+              <div className="panel-heading">
+                <h2>Validation Result</h2>
+                <p>Review extracted text, matched medicines, warnings, and previous validation runs.</p>
+              </div>
+
+              {error ? <p className="error">{error}</p> : null}
+
+              {!result ? (
+                <div className="empty-state">
+                  <p>No validation result yet. Submit a prescription to inspect it.</p>
+                </div>
+              ) : (
+                <div className="result-stack">
+                  <div className={`score-card ${scoreTone(result.safetyScore)}`}>
+                    <span>Safety Score</span>
+                    <strong>{result.safetyScore}/100</strong>
+                  </div>
+
+                  <div className="summary">
+                    <h3>Summary</h3>
+                    <p>{result.summary}</p>
+                    {result.ocrConfidence ? (
+                      <p className="notice">OCR confidence: {result.ocrConfidence}%</p>
+                    ) : null}
+                    {result.scanMetadata?.lowConfidence ? (
+                      <p className="error">
+                        OCR confidence is low. Handwritten or blurry prescriptions may not be read correctly.
+                      </p>
+                    ) : null}
+                    {result.sourceLabel ? (
+                      <p className="notice">Scanned file: {result.sourceLabel}</p>
+                    ) : null}
+                  </div>
+
+                  <div className="result-grid">
+                    <article>
+                      <h3>Extracted Text</h3>
+                      <pre className="extracted-text">{result.extractedText}</pre>
+                    </article>
+
+                    <article>
+                      <h3>Medicine Details</h3>
+                      {result.medicines.length ? (
+                        result.medicines.map((medicine) => (
+                          <div className="medicine-card" key={`${medicine.name}-${medicine.dosage}`}>
+                            <div className="medicine-head">
+                              <strong>{medicine.name}</strong>
+                              <span className={medicine.recognized ? "tag ok" : "tag muted"}>
+                                {medicine.recognized ? "recognized" : "unknown"}
+                              </span>
+                            </div>
+                            <p>Dosage: {medicine.dosage ?? "No dosage found"}</p>
+                            <p>Generic: {medicine.genericName ?? "Not available"}</p>
+                            <p>Description: {medicine.description ?? "Not available"}</p>
+                            <p>Dosage range: {medicine.dosageRange ?? "Not configured"}</p>
+                            <p>
+                              Allergy tags:{" "}
+                              {medicine.allergyTags?.length
+                                ? medicine.allergyTags.join(", ")
+                                : "None"}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="notice">No medicine entries were extracted.</p>
+                      )}
+                    </article>
+
+                    <article>
+                      <h3>Warnings</h3>
+                      <ul>
+                        {result.warnings.length ? (
+                          result.warnings.map((warning, index) => (
+                            <li key={`${warning.type}-${index}`}>{warning.message}</li>
+                          ))
+                        ) : (
+                          <li>No warnings detected.</li>
+                        )}
+                      </ul>
+                    </article>
+                  </div>
+                </div>
+              )}
+            </section>
+          </main>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default App;
+
